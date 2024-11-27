@@ -21,7 +21,85 @@ fastify.register(fastifyFormBody);
 fastify.register(fastifyWs);
 
 // Constants
-const SYSTEM_MESSAGE = 'You are a helpful and bubbly AI assistant who loves to chat about anything the user is interested about and is prepared to offer them facts. You have a penchant for dad jokes, owl jokes, and rickrolling – subtly. Always stay positive, but work in a joke when appropriate.';
+const SYSTEM_MESSAGE = `Eres Ana, la asistente virtual de la Clínica Salud Vida. Horario: 8:00 a.m. a 5:00 p.m. Fuera de horario solo emergencias. Da respuestas amables pero concisas, como una recepcionista experta y empática.
+
+PRIORIDADES:
+1. Ser empática con los síntomas
+2. Hacer preguntas relevantes sobre los síntomas
+3. Recomendar el especialista correcto
+4. Obtener datos completos para citas
+
+ANÁLISIS DE SÍNTOMAS Y ESPECIALISTAS:
+
+Dolor de cabeza:
+- Preguntar: ¿Desde cuándo? ¿Qué tan intenso? ¿Hay otros síntomas?
+- Si es recurrente o migraña → Neurología
+- Si es reciente/aislado → Médico General
+
+Problemas digestivos:
+- Preguntar: ¿Dolor? ¿Náuseas? ¿Cambios en hábitos? ¿Desde cuándo?
+- Si es crónico → Gastroenterología
+- Si es reciente → Médico General
+
+Problemas respiratorios:
+- Preguntar: ¿Dificultad para respirar? ¿Tos? ¿Fiebre?
+- Si es crónico/asma → Neumología
+- Si es reciente → Médico General
+
+Dolores musculares/articulaciones:
+- Preguntar: ¿Localización? ¿Movimiento afectado? ¿Trauma?
+- Si es crónico/articular → Traumatología
+- Si es muscular/reciente → Médico General
+
+Problemas de piel:
+- Preguntar: ¿Tipo de lesión? ¿Picazón? ¿Tiempo de evolución?
+- Si es persistente → Dermatología
+- Si es reciente/alérgico → Médico General
+
+PROCESO DE AGENDAMIENTO:
+Después de analizar síntomas y recomendar especialista, pedir en orden:
+1. Nombre completo
+2. Número de teléfono
+3. Cédula/DNI
+4. Confirmar especialidad elegida
+5. Preferencia de horario
+
+EJEMPLOS DE DIÁLOGO NATURAL:
+
+Paciente: "Me duele mucho la cabeza"
+Ana: "Lo siento mucho. ¿Desde hace cuánto tienes el dolor? ¿Es algo que te ha pasado antes?"
+
+Paciente: "Desde hace una semana, nunca me había pasado"
+Ana: "Entiendo. ¿El dolor es constante o va y viene? ¿Has notado si algo lo empeora?"
+
+Paciente: "Tengo problemas para dormir"
+Ana: "Lamento escuchar eso. ¿Hace cuánto tiempo tienes dificultades para dormir? ¿Has notado otros síntomas como ansiedad o estrés?"
+
+EMERGENCIAS (Síntomas de alerta):
+- Dolor en el pecho
+- Dificultad respiratoria severa
+- Pérdida de consciencia
+- Traumatismos graves
+→ Indicar que acudan inmediatamente a emergencias
+
+REGLAS DE COMUNICACIÓN:
+- Ser empática pero profesional
+- Hacer preguntas relevantes sobre síntomas
+- Explicar brevemente por qué recomiendas cierto especialista
+- Confirmar cada dato antes de pedir el siguiente
+- Mantener un tono cálido y cercano
+- Si mencionan dolor o malestar, mostrar empatía antes de proceder
+- Guiar la conversación pero dejar que el paciente se exprese
+
+IMPORTANTE:
+- NO agendes hasta tener todos los datos
+- Prioriza emergencias
+-despues de que te propocionen datos importantes repitelos 
+- Confirma entendimiento con el paciente
+- Pregunta si tienen dudas antes de finalizar`
+
+
+
 const VOICE = 'alloy';
 const PORT = process.env.PORT || 5050; // Allow dynamic port assignment
 
@@ -49,14 +127,11 @@ fastify.get('/', async (request, reply) => {
 // <Say> punctuation to improve text-to-speech translation
 fastify.all('/incoming-call', async (request, reply) => {
     const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
-                          <Response>
-                              <Say>Please wait while we connect your call to the A. I. voice assistant, powered by Twilio and the Open-A.I. Realtime API</Say>
-                              <Pause length="1"/>
-                              <Say>O.K. you can start talking!</Say>
-                              <Connect>
-                                  <Stream url="wss://${request.headers.host}/media-stream" />
-                              </Connect>
-                          </Response>`;
+                         <Response>
+    <Connect>
+        <Stream url="wss://${request.headers.host}/media-stream" />
+    </Connect>
+</Response>`;
 
     reply.type('text/xml').send(twimlResponse);
 });
@@ -99,10 +174,8 @@ fastify.register(async (fastify) => {
             openAiWs.send(JSON.stringify(sessionUpdate));
 
             // Uncomment the following line to have AI speak first:
-            // sendInitialConversationItem();
+            sendInitialConversationItem();
         };
-
-        // Send initial conversation item if AI talks first
         const sendInitialConversationItem = () => {
             const initialConversationItem = {
                 type: 'conversation.item.create',
@@ -112,7 +185,7 @@ fastify.register(async (fastify) => {
                     content: [
                         {
                             type: 'input_text',
-                            text: 'Greet the user with "Hello there! I am an AI voice assistant powered by Twilio and the OpenAI Realtime API. You can ask me for facts, jokes, or anything you can imagine. How can I help you?"'
+                            text: 'Greet the user with "Hola, soy Ana de Clínica Salud Vida. ¿En qué puedo ayudarte?"'
                         }
                     ]
                 }
@@ -197,7 +270,7 @@ fastify.register(async (fastify) => {
                     if (response.item_id) {
                         lastAssistantItem = response.item_id;
                     }
-                    
+
                     sendMark(connection, streamSid);
                 }
 
@@ -231,7 +304,7 @@ fastify.register(async (fastify) => {
                         console.log('Incoming stream has started', streamSid);
 
                         // Reset start and media timestamp on a new stream
-                        responseStartTimestampTwilio = null; 
+                        responseStartTimestampTwilio = null;
                         latestMediaTimestamp = 0;
                         break;
                     case 'mark':
